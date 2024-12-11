@@ -37,7 +37,7 @@ import UniformTypeIdentifiers
     var certificateURL: URL?
     
     /// A Boolean value indicating whether to show the prompt.
-    @Published var showPrompt = false
+    @Published var showPrompt = true
     
     /// A Boolean value indicating whether to show the certificate file picker.
     @Published var showPicker = false
@@ -217,7 +217,7 @@ struct CertificatePickerViewModifier: ViewModifier {
                     }
                 )
             )
-            .certificateErrorSheet(
+            .alertCertificateError(
                 isPresented: $viewModel.showCertificateError,
                 viewModel: viewModel
             )
@@ -238,62 +238,34 @@ private extension View {
         isPresented: Binding<Bool>,
         viewModel: CertificatePickerViewModel
     ) -> some View {
-        sheet(isPresented: isPresented) {
-            VStack(alignment: .center) {
-                Text(
-                    "Certificate Required",
-                    bundle: .toolkitModule,
-                    comment: "A label indicating that a certificate is required to proceed."
-                )
-                .font(.title)
-                .multilineTextAlignment(.center)
-                .padding(.vertical)
-                Text(
-                    "A certificate is required to access content on \(viewModel.challengingHost).",
-                    bundle: .toolkitModule,
-                    comment: """
+        alert(
+            Text("Certificate Required", bundle: .toolkitModule),
+            isPresented: isPresented,
+            presenting: viewModel.challengingHost
+        ) { _ in
+            Button {
+                viewModel.proceedToPicker()
+            } label: {
+                Text("Browse For Certificate", bundle: .toolkitModule)
+            }
+            Button(role: .cancel) {
+                viewModel.cancel()
+            } label: {
+                Text("Cancel", bundle: .toolkitModule)
+            }
+        } message: { _ in
+            Text(
+                "A certificate is required to access content on \(viewModel.challengingHost).",
+                bundle: .toolkitModule,
+                comment: """
                              An alert message indicating that a certificate is required to access
                              content on a remote host. The variable is the host that prompted the challenge.
                              """
-                )
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.bottom)
-                HStack {
-                    Spacer()
-                    Button(role: .cancel) {
-                        isPresented.wrappedValue = false
-                        viewModel.cancel()
-                    } label: {
-                        Text(String.cancel)
-                            .padding(.horizontal)
-                    }
-                    .buttonStyle(.bordered)
-                    Spacer()
-                    Button(role: .cancel) {
-                        isPresented.wrappedValue = false
-                        viewModel.proceedToPicker()
-                    } label: {
-                        Text(
-                            "Browse",
-                            bundle: .toolkitModule,
-                            comment: "A label for a button to open the system file browser."
-                        )
-                        .padding(.horizontal)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Spacer()
-                }
-                Spacer()
-            }
-            .interactiveDismissDisabled()
-            .presentationDetents([.medium])
-            .padding()
+            )
         }
     }
 }
-
+        
 private extension View {
     /// Displays a sheet that allows the user to select a certificate file.
     /// - Parameters:
@@ -305,7 +277,7 @@ private extension View {
     ) -> some View {
         sheet(isPresented: isPresented) {
             DocumentPickerView(contentTypes: [.pfx]) {
-                isPresented.wrappedValue = false
+                isPresented.wrappedValue = false // Anotacao: Do I need this?
                 viewModel.proceedToPasswordEntry(forCertificateWithURL: $0)
             } onCancel: {
                 isPresented.wrappedValue = false
@@ -322,65 +294,31 @@ private extension View {
     /// - Parameters:
     ///   - isPresented: A Boolean value indicating if the view is presented.
     ///   - viewModel: The view model associated with the view.
-    @MainActor @ViewBuilder func certificateErrorSheet(
+    @MainActor @ViewBuilder func alertCertificateError(
         isPresented: Binding<Bool>,
         viewModel: CertificatePickerViewModel
     ) -> some View {
-        sheet(isPresented: isPresented) {
-            VStack(alignment: .center) {
-                Text(
-                    "Error importing certificate",
-                    bundle: .toolkitModule,
-                    comment: """
-                             A message indicating that some error occurred while importing a chosen
-                             network certificate.
-                             """
-                )
-                .font(.title)
-                .multilineTextAlignment(.center)
-                .padding(.vertical)
-                
-                Text(
-                    viewModel.certificateError?.localizedDescription ?? String(
-                        localized: "The certificate file or password was invalid.",
-                        bundle: .toolkitModule,
-                        comment: "A label indicating the chosen file or given password was invalid."
-                    )
-                )
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.bottom)
-                HStack {
-                    Spacer()
-                    Button(role: .cancel) {
-                        isPresented.wrappedValue = false
-                        viewModel.cancel()
-                    } label: {
-                        Text(String.cancel)
-                            .padding(.horizontal)
-                    }
-                    .buttonStyle(.bordered)
-                    Spacer()
-                    Button(role: .cancel) {
-                        isPresented.wrappedValue = false
-                        viewModel.proceedToPicker()
-                    } label: {
-                        Text(
-                            "Try Again",
-                            bundle: .toolkitModule,
-                            comment: "A label for a button allowing the user to retry an operation."
-                        )
-                        .padding(.horizontal)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Spacer()
-                }
-                Spacer()
+        alert(
+            Text("Error importing certificate", bundle: .toolkitModule),
+            isPresented: isPresented
+        ) {
+            Button {
+                viewModel.proceedToPicker()
+            } label: {
+                Text("Try Again", bundle: .toolkitModule)
             }
-            .interactiveDismissDisabled()
-            .presentationDetents([.medium])
-            .padding()
+            Button(role: .cancel) {
+                viewModel.cancel()
+            } label: {
+                Text("Cancel", bundle: .toolkitModule)
+            }
+        } message: {
+            Text(
+                viewModel.certificateError?.localizedDescription ?? String(
+                    localized: "The certificate file or password was invalid.",
+                    bundle: .toolkitModule
+                 )
+            )
         }
     }
 }
